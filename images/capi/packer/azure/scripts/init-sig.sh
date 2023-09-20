@@ -46,7 +46,8 @@ create_image_definition() {
     --sku ${SIG_SKU:-$2} \
     --hyper-v-generation ${3} \
     --os-type ${4} \
-    --features ${5:-''}
+    --features ${5:-''} \
+    --architecture Arm64
 }
 
 SIG_TARGET=$1
