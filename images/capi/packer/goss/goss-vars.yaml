@@ -395,7 +395,6 @@ ubuntu:
         title: "Check exact for the contents in /etc/cloud/cloud.cfg.d/15_azure-vnet.cfg"
     package:
       open-vm-tools:
-      linux-cloud-tools-virtual:
       linux-tools-virtual:
       <<: *chrony_deb
     service:

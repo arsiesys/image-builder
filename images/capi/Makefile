@@ -269,6 +269,16 @@ COMMON_NODE_VAR_FILES :=	packer/config/kubernetes.json \
 					packer/config/common.json \
 					packer/config/additional_components.json
 
+COMMON_LINUX_ARM64_VAR_FILES :=	packer/config/kubernetes.json \
+					packer/config/cni.json \
+					packer/config/containerd.json \
+					packer/config/wasm-shims.json \
+					packer/config/arm64.ansible-args.json \
+					packer/config/arm64.goss-args.json \
+					packer/config/arm64.wasm-shims.json \
+					packer/config/common.json \
+					packer/config/additional_components.json
+
 COMMON_WINDOWS_VAR_FILES :=	packer/config/kubernetes.json \
 					packer/config/windows/kubernetes.json \
 					packer/config/containerd.json \
@@ -299,6 +309,8 @@ COMMON_POWERVS_VAR_FILES := packer/config/kubernetes.json \
 #
 # Any existing values from PACKER_FLAGS take precendence over variable files.
 PACKER_NODE_FLAGS := $(foreach f,$(abspath $(COMMON_NODE_VAR_FILES)),-var-file="$(f)" ) \
+				$(PACKER_FLAGS)
+PACKER_LINUX_ARM64_NODE_FLAGS := $(foreach f,$(abspath $(COMMON_LINUX_ARM64_VAR_FILES)),-var-file="$(f)" ) \
 				$(PACKER_FLAGS)
 ABSOLUTE_PACKER_VAR_FILES := $(foreach f,$(abspath $(PACKER_VAR_FILES)),-var-file="$(f)" )
 PACKER_WINDOWS_NODE_FLAGS := $(foreach f,$(abspath $(COMMON_WINDOWS_VAR_FILES)),-var-file="$(f)" ) \
@@ -352,6 +364,7 @@ SIG_CVM_TARGETS := $(shell grep SIG_CVM_TARGETS azure_targets.sh | sed 's/SIG_CV
 AZURE_BUILD_VHD_NAMES	   ?= $(addprefix azure-vhd-,$(VHD_TARGETS))
 AZURE_BUILD_SIG_NAMES	   ?= $(addprefix azure-sig-,$(SIG_TARGETS))
 AZURE_BUILD_SIG_GEN2_NAMES ?= $(addsuffix -gen2,$(addprefix azure-sig-,$(SIG_GEN2_TARGETS)))
+AZURE_BUILD_SIG_LINUX_ARM64_NAMES ?= $(addsuffix -arm64,$(addprefix azure-sig-,$(SIG_GEN2_TARGETS)))
 AZURE_BUILD_SIG_CVM_NAMES ?= $(addsuffix -cvm,$(addprefix azure-sig-,$(SIG_CVM_TARGETS)))
 
 OCI_BUILD_NAMES			   ?= oci-ubuntu-2004 oci-ubuntu-2204 oci-oracle-linux-8 oci-oracle-linux-9 oci-windows-2019 oci-windows-2022
@@ -395,9 +408,11 @@ AZURE_BUILD_VHD_TARGETS	:= $(addprefix build-,$(AZURE_BUILD_VHD_NAMES))
 AZURE_VALIDATE_VHD_TARGETS	:= $(addprefix validate-,$(AZURE_BUILD_VHD_NAMES))
 AZURE_BUILD_SIG_TARGETS	:= $(addprefix build-,$(AZURE_BUILD_SIG_NAMES))
 AZURE_BUILD_SIG_GEN2_TARGETS	:= $(addprefix build-,$(AZURE_BUILD_SIG_GEN2_NAMES))
+AZURE_BUILD_SIG_LINUX_ARM64_TARGETS	:= $(addprefix build-,$(AZURE_BUILD_SIG_LINUX_ARM64_NAMES))
 AZURE_BUILD_SIG_CVM_TARGETS	:= $(addprefix build-,$(AZURE_BUILD_SIG_CVM_NAMES))
 AZURE_VALIDATE_SIG_TARGETS	:= $(addprefix validate-,$(AZURE_BUILD_SIG_NAMES))
 AZURE_VALIDATE_SIG_GEN2_TARGETS	:= $(addprefix validate-,$(AZURE_BUILD_SIG_GEN2_NAMES))
+AZURE_VALIDATE_SIG_LINUX_ARM64_TARGETS	:= $(addprefix validate-,$(AZURE_BUILD_SIG_LINUX_ARM64_NAMES))
 AZURE_VALIDATE_SIG_CVM_TARGETS	:= $(addprefix validate-,$(AZURE_BUILD_SIG_CVM_NAMES))
 DO_BUILD_TARGETS 	:= $(addprefix build-,$(DO_BUILD_NAMES))
 DO_VALIDATE_TARGETS 	:= $(addprefix validate-,$(DO_BUILD_NAMES))
@@ -490,6 +505,10 @@ $(AZURE_BUILD_SIG_TARGETS): deps-azure
 $(AZURE_BUILD_SIG_GEN2_TARGETS): deps-azure
 	. $(abspath packer/azure/scripts/init-sig.sh) $(subst build-azure-sig-,,$@) && $(PACKER) build $(if $(findstring windows,$@),$(PACKER_WINDOWS_NODE_FLAGS),$(PACKER_NODE_FLAGS)) -var-file="$(abspath packer/azure/azure-config.json)" -var-file="$(abspath packer/azure/azure-sig-gen2.json)" -var-file="$(abspath packer/azure/$(subst build-azure-sig-,,$@).json)" -only="$(subst build-azure-,,$@)" $(ABSOLUTE_PACKER_VAR_FILES) packer/azure/packer$(findstring -windows,$@).json
 
+.PHONY: $(AZURE_BUILD_SIG_LINUX_ARM64_TARGETS)
+$(AZURE_BUILD_SIG_LINUX_ARM64_TARGETS): deps-azure
+	. $(abspath packer/azure/scripts/init-sig-arm64.sh) $(subst build-azure-sig-,,$@) && $(PACKER) build $(if $(findstring arm64,$@),$(PACKER_LINUX_ARM64_NODE_FLAGS),$(PACKER_NODE_FLAGS)) -var-file="$(abspath packer/azure/azure-config-arm64.json)" -var-file="$(abspath packer/azure/azure-sig-arm64.json)" -var-file="$(abspath packer/azure/$(subst build-azure-sig-,,$@).json)" -only="$(subst build-azure-,,$@)" $(ABSOLUTE_PACKER_VAR_FILES) packer/azure/packer-linux-arm64.json
+
 .PHONY: $(AZURE_BUILD_SIG_CVM_TARGETS)
 $(AZURE_BUILD_SIG_CVM_TARGETS): deps-azure
 	. $(abspath packer/azure/scripts/init-sig.sh) $(subst build-azure-sig-,,$@) && packer build $(if $(findstring windows,$@),$(PACKER_WINDOWS_NODE_FLAGS),$(PACKER_NODE_FLAGS)) -var-file="$(abspath packer/azure/azure-config.json)" -var-file="$(abspath packer/azure/azure-sig-cvm.json)" -var-file="$(abspath packer/azure/$(subst build-azure-sig-,,$@).json)" -only="$(subst build-azure-,,$@)" $(ABSOLUTE_PACKER_VAR_FILES) packer/azure/packer$(findstring -windows,$@).json
@@ -501,6 +520,10 @@ $(AZURE_VALIDATE_SIG_TARGETS): deps-azure
 .PHONY: $(AZURE_VALIDATE_SIG_GEN2_TARGETS)
 $(AZURE_VALIDATE_SIG_GEN2_TARGETS): deps-azure
 	$(PACKER) validate $(if $(findstring windows,$@),$(PACKER_WINDOWS_NODE_FLAGS),$(PACKER_NODE_FLAGS)) -var-file="$(abspath packer/azure/azure-config.json)" -var-file="$(abspath packer/azure/azure-sig-gen2.json)" -var-file="$(abspath packer/azure/$(subst validate-azure-sig-,,$@).json)" -only="$(subst validate-azure-,,$@)" $(ABSOLUTE_PACKER_VAR_FILES) packer/azure/packer$(findstring windows,$@).json
+
+.PHONY: $(AZURE_VALIDATE_SIG_LINUX_ARM64_TARGETS)
+$(AZURE_VALIDATE_SIG_LINUX_ARM64_TARGETS): deps-azure
+	$(PACKER) validate $(if $(findstring arm64,$@),$(PACKER_LINUX_ARM64_NODE_FLAGS),$(PACKER_NODE_FLAGS)) -var-file="$(abspath packer/azure/azure-config-arm64.json)" -var-file="$(abspath packer/azure/azure-sig-arm64.json)" -var-file="$(abspath packer/azure/$(subst validate-azure-sig-,,$@).json)" -only="$(subst validate-azure-,,$@)" $(ABSOLUTE_PACKER_VAR_FILES) packer/azure/packer-linux-arm64.json
 
 .PHONY: $(AZURE_VALIDATE_SIG_CVM_TARGETS)
 $(AZURE_VALIDATE_SIG_CVM_TARGETS): deps-azure
@@ -665,6 +688,7 @@ build-azure-sig-flatcar: ## Builds Flatcar Azure managed image in Shared Image G
 build-azure-sig-flatcar-gen2: ## Builds Flatcar Azure Gen2 managed image in Shared Image Gallery
 build-azure-sig-ubuntu-2004-gen2: ## Builds Ubuntu 20.04 Gen2 managed image in Shared Image Gallery
 build-azure-sig-ubuntu-2204-gen2: ## Builds Ubuntu 22.04 Gen2 managed image in Shared Image Gallery
+build-azure-sig-ubuntu-2204-arm64: ## Builds Ubuntu 22.04 Gen2 managed image in Shared Image Gallery
 build-azure-sig-ubuntu-2004-cvm: ## Builds Ubuntu 20.04 CVM managed image in Shared Image Gallery
 build-azure-sig-ubuntu-2204-cvm: ## Builds Ubuntu 22.04 CVM managed image in Shared Image Gallery
 build-azure-vhds: $(AZURE_BUILD_VHD_TARGETS) ## Builds all Azure VHDs
@@ -839,6 +863,7 @@ validate-azure-sig-mariner-2-gen2: ## Validates Mariner 2 Gen2 Azure managed ima
 validate-azure-sig-ubuntu-2004-gen2: ## Validates Ubuntu 20.04 Azure managed image in Shared Image Gallery Packer config
 validate-azure-sig-ubuntu-2004-cvm: ## Validates Ubuntu 20.04 CVM Azure managed image in Shared Image Gallery Packer config
 validate-azure-sig-ubuntu-2204-gen2: ## Validates Ubuntu 22.04 Azure managed image in Shared Image Gallery Packer config
+validate-azure-sig-ubuntu-2204-arm64: ## Validates Ubuntu 22.04 Azure managed image in Shared Image Gallery Packer config
 validate-azure-sig-ubuntu-2204-cvm: ## Validates Ubuntu 22.04 CVM Azure managed image in Shared Image Gallery Packer config
 validate-azure-all: $(AZURE_VALIDATE_SIG_TARGETS) $(AZURE_VALIDATE_VHD_TARGETS) $(AZURE_VALIDATE_SIG_GEN2_TARGETS) $(AZURE_VALIDATE_SIG_CVM_TARGETS) ## Validates all images for Azure Packer config
 

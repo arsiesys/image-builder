@@ -19,7 +19,17 @@
     mode: 0644
   # OCI Base images have the required apt sources list embedded inside the image, adding the sources list
   # from this repo leads to build failures(especially in Arm), hence ignoring the step.
-  when: packer_builder_type != "oracle-oci"
+  when: packer_builder_type != "oracle-oci" and ansible_architecture != "aarch64"
+
+- name: Put templated sources.list in place for ARM64
+  template:
+    src: etc/apt/arm64.sources.list.j2
+    dest: /etc/apt/sources.list
+    mode: 0644
+  # OCI Base images have the required apt sources list embedded inside the image, adding the sources list
+  # from this repo leads to build failures(especially in ARM), hence ignoring the step.
+  # change suggested by ader1990 @https://github.com/kubernetes-sigs/image-builder/pull/1142/files#diff-2eb46bb4d579fdc0467ce0732ffdfe66f81be06a97ecc94dd9c465bdc348168d
+  when: packer_builder_type != "oracle-oci" and ansible_architecture == "aarch64"
 
 - name: Put templated apt.conf.d/90proxy in place when defined
   template:
